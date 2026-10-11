@@ -15,6 +15,9 @@ from backend.models import (
 )
 from backend.updater import setup_optimizer, get_rate
 from common_utils.diarization_dataset import KaldiDiarizationDataset
+from common_utils.precomputed_diarization_dataset import (
+    PrecomputedKaldiDiarizationDataset,
+)
 from common_utils.gpu_utils import use_single_gpu
 from common_utils.metrics import (
     calculate_metrics,
@@ -70,11 +73,26 @@ def compute_loss_and_metrics(
     return loss, acum_metrics
 
 
-def get_training_dataloaders(
-    args: SimpleNamespace
-) -> Tuple[DataLoader, DataLoader]:
-    train_set = KaldiDiarizationDataset(
-        args.train_data_dir,
+def _build_dataset(args: SimpleNamespace, data_dir: str, precomputed_dir: str):
+    """Read a precomputed mel cache when one is given, else a Kaldi data dir.
+
+    The precomputed path exists because the simulated-conversation corpora
+    are only available here as precomputed caches, with no audio to read.
+    chunk_size/frame_size/frame_shift/sampling_rate are baked into the cache,
+    so they are not accepted again; context_size, subsampling and
+    n_speakers are still applied at load time.
+    """
+    if precomputed_dir:
+        return PrecomputedKaldiDiarizationDataset(
+            precomputed_dir,
+            context_size=args.context_size,
+            n_speakers=args.num_speakers,
+            subsampling=args.subsampling,
+            feature_dim=args.feature_dim,
+            input_transform=args.input_transform,
+        )
+    return KaldiDiarizationDataset(
+        data_dir,
         chunk_size=args.num_frames,
         context_size=args.context_size,
         feature_dim=args.feature_dim,
@@ -88,6 +106,13 @@ def get_training_dataloaders(
         use_last_samples=args.use_last_samples,
         min_length=args.min_length,
     )
+
+
+def get_training_dataloaders(
+    args: SimpleNamespace
+) -> Tuple[DataLoader, DataLoader]:
+    train_set = _build_dataset(
+        args, args.train_data_dir, args.train_precomputed_dir)
     train_loader = DataLoader(
         train_set,
         batch_size=args.train_batchsize,
@@ -97,21 +122,8 @@ def get_training_dataloaders(
         worker_init_fn=_init_fn,
     )
 
-    dev_set = KaldiDiarizationDataset(
-        args.valid_data_dir,
-        chunk_size=args.num_frames,
-        context_size=args.context_size,
-        feature_dim=args.feature_dim,
-        frame_shift=args.frame_shift,
-        frame_size=args.frame_size,
-        input_transform=args.input_transform,
-        n_speakers=args.num_speakers,
-        sampling_rate=args.sampling_rate,
-        shuffle=args.time_shuffle,
-        subsampling=args.subsampling,
-        use_last_samples=args.use_last_samples,
-        min_length=args.min_length,
-    )
+    dev_set = _build_dataset(
+        args, args.valid_data_dir, args.valid_precomputed_dir)
     dev_loader = DataLoader(
         dev_set,
         batch_size=args.dev_batchsize,
@@ -193,6 +205,12 @@ def parse_arguments() -> SimpleNamespace:
     parser.add_argument('--vad-loss-weight', default=0.0, type=float)
     parser.add_argument('--valid-data-dir',
                         help='kaldi-style data dir used for validation.')
+    parser.add_argument('--train-precomputed-dir', default=None, type=str,
+                        help='precomputed mel cache for training; if set, '
+                             'takes precedence over --train-data-dir')
+    parser.add_argument('--valid-precomputed-dir', default=None, type=str,
+                        help='precomputed mel cache for validation; if set, '
+                             'takes precedence over --valid-data-dir')
 
     attractor_args = parser.add_argument_group('attractor')
     attractor_args.add_argument(
