@@ -1,0 +1,40 @@
+# EEND-EDA finetune on MSDWild, feature settings matched to our own
+# MSDWild finetune (feature_dim 40 / 16 kHz / logmel_meannorm / ctx 7 /
+# subsampling 10 / num_frames 600 = 60 s) so the comparison differs in
+# architecture, not features. Reads our precomputed mel cache.
+attractor_loss_ratio: 1.0
+attractor_encoder_dropout: 0.1
+attractor_decoder_dropout: 0.1
+context_size: 7
+detach_attractor_loss: False
+dev_batchsize: 8
+encoder_units: 2048
+feature_dim: 40
+frame_shift: 160
+frame_size: 400
+use_last_samples: True
+gpu: 1
+gradclip: 5
+hidden_size: 256
+input_transform: logmel_meannorm
+log_report_batches_num: 10
+max_epochs: 1
+model_type: TransformerEDA
+num_frames: 600
+num_speakers: 10
+num_workers: 2
+optimizer: adam
+lr: 1e-5
+sampling_rate: 16000
+seed: 3
+subsampling: 10
+time_shuffle: True
+train_batchsize: 32
+transformer_encoder_dropout: 0.1
+transformer_encoder_n_heads: 4
+transformer_encoder_n_layers: 4
+train_precomputed_dir: D:/Python/custom-diaper/database/msdwild_precompute_6000frames/train
+valid_precomputed_dir: D:/Python/custom-diaper/database/msdwild_precompute_6000frames/dev
+train_data_dir: unused
+valid_data_dir: unused
+output_path: C:/Users/Nam/AppData/Local/Temp/claude/D--Python-custom-diaper/a79175f6-11a1-4e2e-82ca-dbbe632fe987/scratchpad/eendeda_bench
